@@ -1,0 +1,105 @@
+// -*- javascript-mode -*-
+
+// Related work: https://github.com/andykent/river (uses own language
+// rather than operators)
+
+// Why use this instead of pipe?
+
+var socket = net.createConnection("localhost", 5000);
+socket.setEncoding('utf8');
+var file = fs.createWriteStream("/tmp/alerts");
+
+// With stream proxying:
+var filtered = partition(socket, function(data) { return /^prefix/.test(data); });
+filtered.pipe(file);
+
+// With pipes
+var filtered = new PartitionStream(function(data) { return /^prefix/.test(data); });
+socket.pipe(filtered);
+filtered.pipe(file);
+
+// NB In both cases filtered must be flip writes to emits. In both
+// cases back-pressure may be propagated: the implementation of pipe
+// will help with this in the second case (but of course pipe can
+// simply be done behind the scenes in the first anyway).
+
+// One nice feature of the first approach is that it's "chainable",
+// that is, one could write
+
+partition(socket, /^prefix/)
+  .transform(function(data) { return data.substring(6); })
+  .pipe(file);
+
+// Mind you, pipe returns the destination stream, so one can do
+
+socket.pipe(new PartitionStream(/^prefix/))
+  .pipe(new TransformStream(function(data) { return data.substring(6); }))
+  .pipe(file);
+
+// but I don't think it's as nice. Perhaps both can be provided.  One
+// major problem with pipe is that it won't deal with multiple
+// arguments; possibly that is breaking the contract, in which case,
+// the proxy streams ought really to have another interface:
+
+new Source(socket)
+    .filter(/^prefix/)
+    .transform(function(d) {...})
+    .sink(file);
+
+// where Sink does something if it gets more than one data argument --
+// perhaps just drops any others.
+
+// Another example, this time using join
+
+new Join(socket1, socket2)
+    // go from d1, d2, to {'d1': d1, 'd2': d2}
+    .lift('d1', 'd2')
+    .tojson()
+    .sink(file);
+
+// Can I do this:
+
+new Source(socket1).join(socket2, socket3)
+// (sure why not, but it's not nice)
+
+// *** Maybe it would be easier to cons arrays and send those as the
+// representation of tuples, rather than using multiple arguments,
+// which cause a bit of pain (lots of consing, and reimplementing pipe
+// etc.).
+
+// ====
+
+// destruct:
+var parts = strimz(net.connect(5000)).match(/^prefix(.*)/);
+
+// partition_into or split pipes two ways:
+
+source(alerts).split(/^ERROR/, process.stderr, process.stdout);
+
+// can this be generalised ..
+
+source(alerts).split(/^WARNING/, process.stdout,
+                     /^ERROR/, process.stderr,
+                     true, fs.createWriteStream("/tmp/log"));
+
+// fold
+
+// running total .. any useful examples?
+source(numbers).fold(function(accum, d) { return accum + d; }, 0);
+
+// signals v events
+
+// a sample every five seconds
+source(net.connect(5000)).sample({'seconds': 5});
+
+// a sample every ten events
+source(net.connect(5000)).sample({'events': 10});
+
+// send tick every five seconds
+every(5000, "tick");
+
+// gate (send left stream, or both, when right stream has a value,
+// discard otherwise)
+
+// case -- destructing patterns with multiple pipes
+
