@@ -7,3 +7,5 @@ module.exports.join = streams.join;
 module.exports.mux = streams.mux;
 module.exports.demux = streams.demux;
 // All others are left as methods of tuple stream only.
+
+module.exports.signal = require('./lib/signal').signal;
