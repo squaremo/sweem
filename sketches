@@ -103,3 +103,23 @@ every(5000, "tick");
 
 // case -- destructing patterns with multiple pipes
 
+
+// --- parsing
+
+// Parsing frames from some stream. sweem with bitsyntax could be
+// helpful:
+
+var frames = sweem(socket).frames('len:8, data:len');
+
+// which is: match the pattern given against the data stream; if it
+// doesn't match, wait for another data event before trying again with
+// the concatenated buffers. Emit a frame when one matches.
+//
+// Probably best to provide two procedures: one to try a parse, one to
+// accumulate values. Can this be built from other primitives?
+
+sweem(socket).frames(BITS.compile('len:8, data:len'), consBuffers);
+
+// Difficulty: how to determine what the rest is.
+// Possibly use {value: _, rest_} | false
+// as I did with msgpack.
