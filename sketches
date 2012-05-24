@@ -103,7 +103,6 @@ every(5000, "tick");
 
 // case -- destructing patterns with multiple pipes
 
-
 // --- parsing
 
 // Parsing frames from some stream. sweem with bitsyntax could be
@@ -123,3 +122,52 @@ sweem(socket).frames(BITS.compile('len:8, data:len'), consBuffers);
 // Difficulty: how to determine what the rest is.
 // Possibly use {value: _, rest_} | false
 // as I did with msgpack.
+
+// ==== SIGNALS
+
+// A signal is a value. Default behaviour is to take an event stream
+// and just overwrite; but this isn't the only
+// behaviour. signal.changes can be used to convert back to an event
+// stream; likewise, signal.sample(...).
+
+// A URL is a signal too that can be sampled (but, 'changes'?). Or
+// maybe there's just `sampleUrl`.
+
+// Differentiate a signal.
+
+// A window is a signal with some extra gubbins like sum.
+
+// === DEDUP
+
+// Deduplication, grouping, explicit and implicit timestamp windows
+
+var entries = url('http://example.com/blog.atom').split(function(entire) {
+  return xpath(entire, '//atom:entry');
+}).dedup({unique: function(entry) { return xpath(entry, '//atom:id'); },
+          lwm: function(entry) { return xpath(entry, '//atom:timestamp');}});
+
+// that is, split the polled data into entries, extract the timestamp
+// from each and treat it as a time value, and keep a deduplication
+// buffer using a low-water mark. The latter means reject anything
+// older than the low water mark -- effectively this means no
+// pre-dated entries.
+
+// Other options: keep a window of a certain size, using either
+// implicit timestamps (when it arrives) or explicit timestamps.
+
+entries.dedup({unique: function(entry) { return xpath(entry, '//atom:id'); },
+               timestamp: function(entry) { return xpath(entry, '//atom:timestamp') },
+               window: {hours: 2}});
+
+entries.dedup({unique: function(entry) { return xpath(entry, '//atom:id'); },
+               timestamp: Date,
+               window: {hours: 2}});
+
+// (probably should figure out a grammar for this)
+
+// === RELIABILITY
+
+// See Storm, it's not a bad model. Essentially, a reference to the
+// origin is kept, and once a tuple has propagated all the way through
+// a tree, it's acked. The trick is in the details of "all the way
+// through a tree".
